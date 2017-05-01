@@ -1,7 +1,6 @@
 ---
 title: SHT20
 tags: python,lib,sensor
-grammar_cjkRuby: true
 ---
 
 # 类SHT20
