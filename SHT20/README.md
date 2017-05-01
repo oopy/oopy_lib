@@ -1,6 +1,7 @@
 ---
 title: SHT20
 tags: python,lib,sensor
+author: [Huifeng](https://github.com/sgrrzhf)
 ---
 
 # 类SHT20
