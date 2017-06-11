@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 #   Copyright 2015 Jonas Berg
 #
@@ -15,12 +15,13 @@
 #   limitations under the License.
 #
 
-#"""
 #.. moduleauthor:: Jonas Berg <pyhys@users.sourceforge.net>
 #MinimalModbus: A Python driver for the Modbus RTU and Modbus ASCII protocols via serial port (via RS485 or RS232).
-#"""
+
+# 修改内容: 精简部分内容并移植到micropython平台
 
 #__author__   = 'Jonas Berg'
+#__修改者__   = 'huifeng'
 #__email__    = 'pyhys@users.sourceforge.net'
 #__url__      = 'https://github.com/pyhys/minimalmodbus'
 #__license__  = 'Apache License, Version 2.0'
