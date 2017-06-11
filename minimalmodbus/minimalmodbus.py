@@ -122,12 +122,11 @@ class Instrument():
     ## Methods for talking to the slave ##
     ######################################
 
-    def write_register(self, registeraddress, value, functioncode=6, signed=False):
-        _checkFunctioncode(functioncode, [6, 16])
+    def write_register(self, registeraddress, value, signed=False):
         _checkBool(signed, description='signed')
         _checkNumerical(value, description='input value')
 
-        self._genericCommand(functioncode, registeraddress, value, signed=signed)
+        self._genericCommand(6, registeraddress, value, signed=signed)
 
 
     def read_registers(self, registeraddress, numberOfRegisters, functioncode=3):
@@ -622,12 +621,12 @@ def _valuelistToBytestring(valuelist, numberOfRegisters):
 
     numberOfBytes = _NUMBER_OF_BYTES_PER_REGISTER * numberOfRegisters
 
-    bytearray = ''
+    bytearray_temp = bytearray(0)
     for value in valuelist:
-        bytearray += _numToTwoByteArray(value, signed=False)
+        bytearray_temp += _numToTwoByteArray(value, signed=False)
 
-    assert len(bytearray) == numberOfBytes
-    return bytearray
+    assert len(bytearray_temp) == numberOfBytes
+    return bytearray_temp
 
 
 def _bytearrayToValuelist(bytearray, numberOfRegisters):
