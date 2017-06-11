@@ -35,19 +35,12 @@ import struct
 import sys
 import time
 
-if sys.version > '3':
-    import binascii
-
 # Allow long also in Python3
 # http://python3porting.com/noconv.html
-if sys.version > '3':
-    long = int
-
 _NUMBER_OF_BYTES_PER_REGISTER = 2
 _SECONDS_TO_MILLISECONDS = 1
 
 # Several instrument instances can share the same serialport
-_SERIALPORTS = {}
 _LATEST_READ_TIMES = {}
 
 ####################
@@ -69,8 +62,6 @@ STOPBITS = 1
 TIMEOUT  = 1000
 #"""Default value for the timeout value in seconds (float)."""
 
-CLOSE_PORT_AFTER_EACH_CALL = False
-#"""Default value for port closure setting."""
 
 #####################
 ## Named constants ##
@@ -130,13 +121,12 @@ class Instrument():
     ## Methods for talking to the slave ##
     ######################################
 
-    def write_register(self, registeraddress, value, numberOfDecimals=0, functioncode=6, signed=False):
+    def write_register(self, registeraddress, value, functioncode=6, signed=False):
         _checkFunctioncode(functioncode, [6, 16])
-        _checkInt(numberOfDecimals, minvalue=0, maxvalue=10, description='number of decimals')
         _checkBool(signed, description='signed')
         _checkNumerical(value, description='input value')
 
-        self._genericCommand(functioncode, registeraddress, value, numberOfDecimals, signed=signed)
+        self._genericCommand(functioncode, registeraddress, value, signed=signed)
 
 
     def read_registers(self, registeraddress, numberOfRegisters, functioncode=3):
@@ -160,7 +150,7 @@ class Instrument():
 
 
     def _genericCommand(self, functioncode, registeraddress, value=None, \
-            numberOfDecimals=0, numberOfRegisters=1, signed=False, payloadformat=None):
+            numberOfRegisters=1, signed=False, payloadformat=None):
         NUMBER_OF_BITS = 1
         NUMBER_OF_BYTES_FOR_ONE_BIT = 1
         NUMBER_OF_BYTES_BEFORE_REGISTERDATA = 1
@@ -177,7 +167,6 @@ class Instrument():
         ## Check input values ##
         _checkFunctioncode(functioncode, ALL_ALLOWED_FUNCTIONCODES)  # Note: The calling facade functions should validate this
         _checkRegisteraddress(registeraddress)
-        _checkInt(numberOfDecimals, minvalue=0, description='number of decimals')
         _checkInt(numberOfRegisters, minvalue=1, maxvalue=MAX_NUMBER_OF_REGISTERS, description='number of registers')
         _checkBool(signed, description='signed')
 
@@ -201,15 +190,11 @@ class Instrument():
                 raise ValueError('The payload format given is not allowed for this function code. ' + \
                     'Given format: {0!r}, functioncode: {1!r}.'.format(payloadformat, functioncode))
 
-                    # Signed and numberOfDecimals
+                    # Signed 
         if signed:
             if payloadformat not in [PAYLOADFORMAT_REGISTER, PAYLOADFORMAT_LONG]:
                 raise ValueError('The "signed" parameter can not be used for this data format. ' + \
                     'Given format: {0!r}.'.format(payloadformat))
-
-        if numberOfDecimals > 0 and payloadformat != PAYLOADFORMAT_REGISTER:
-            raise ValueError('The "numberOfDecimals" parameter can not be used for this data format. ' + \
-                'Given format: {0!r}.'.format(payloadformat))
 
                     # Number of registers
         if functioncode not in [3, 4, 16] and numberOfRegisters != 1:
@@ -256,7 +241,7 @@ class Instrument():
 
         elif functioncode == 6:
             payloadToSlave = _numToTwoByteArray(registeraddress) + \
-                            _numToTwoByteArray(value, numberOfDecimals, signed=signed)
+                            _numToTwoByteArray(value, signed=signed)
 
         elif functioncode == 15:
             payloadToSlave = _numToTwoByteArray(registeraddress) + \
@@ -266,7 +251,7 @@ class Instrument():
 
         elif functioncode == 16:
             if payloadformat == PAYLOADFORMAT_REGISTER:
-                registerdata = _numToTwoByteArray(value, numberOfDecimals, signed=signed)
+                registerdata = _numToTwoByteArray(value, signed=signed)
             elif payloadformat == PAYLOADFORMAT_REGISTERS:
                 registerdata = _valuelistToBytestring(value, numberOfRegisters)
 
@@ -291,7 +276,7 @@ class Instrument():
 
         if functioncode == 6:
             _checkResponseWriteData(payloadFromSlave, \
-                _numToTwoByteArray(value, numberOfDecimals, signed=signed))  # response write data
+                _numToTwoByteArray(value, signed=signed))  # response write data
 
         if functioncode == 15:
             _checkResponseNumberOfRegisters(payloadFromSlave, NUMBER_OF_BITS)  # response number of bits
@@ -318,7 +303,7 @@ class Instrument():
                 return _bytearrayToValuelist(registerdata, numberOfRegisters)
 
             elif payloadformat == PAYLOADFORMAT_REGISTER:
-                return _twoByteStringToNum(registerdata, numberOfDecimals, signed=signed)
+                return _twoByteStringToNum(registerdata, signed=signed)
 
             raise ValueError('Wrong payloadformat for return value generation. ' + \
                 'Given {0}'.format(payloadformat))
@@ -415,9 +400,6 @@ class Instrument():
         # Read response
         answer = self.serial.read(number_of_bytes_to_read)
         _LATEST_READ_TIMES[self.port] = time.ticks_ms()
-
-#        if sys.version_info[0] > 2:
-#            answer = str(answer,'normal')  # Convert types to make it Python3 compatible
 
         if self.debug:
             template = 'MinimalModbus debug mode. Response from instrument: {!r} ({}) ({} bytes), ' + \
@@ -589,14 +571,10 @@ def _numToOneByteArray(inputvalue):
     return outstring
 
 
-def _numToTwoByteArray(value, numberOfDecimals=0, LsbFirst=False, signed=False):
+def _numToTwoByteArray(value, LsbFirst=False, signed=False):
     _checkNumerical(value, description='inputvalue')
-    _checkInt(numberOfDecimals, minvalue=0, description='number of decimals')
     _checkBool(LsbFirst, description='LsbFirst')
     _checkBool(signed, description='signed parameter')
-
-    multiplier = 10 ** numberOfDecimals
-    integer = int(float(value) * multiplier)
 
     if LsbFirst:
         formatcode = '<'  # Little-endian
@@ -607,14 +585,13 @@ def _numToTwoByteArray(value, numberOfDecimals=0, LsbFirst=False, signed=False):
     else:
         formatcode += 'H'  # Unsigned short (2 bytes)
 
-    outstring = _pack(formatcode, integer)
+    outstring = _pack(formatcode, value)
     assert len(outstring) == 2
     return outstring
 
 
-def _twoByteStringToNum(bytearray, numberOfDecimals=0, signed=False):
+def _twoByteStringToNum(bytearray, signed=False):
     _checkString(bytearray, minlength=2, maxlength=2, description='bytearray')
-    _checkInt(numberOfDecimals, minvalue=0, description='number of decimals')
     _checkBool(signed, description='signed parameter')
 
     formatcode = '>'  # Big-endian
@@ -625,12 +602,8 @@ def _twoByteStringToNum(bytearray, numberOfDecimals=0, signed=False):
 
     fullregister = _unpack(formatcode, bytearray)
 
-    if numberOfDecimals == 0:
-        return fullregister
-    divisor = 10 ** numberOfDecimals
-    return fullregister / float(divisor)
-
-
+    return fullregister
+    
 def _valuelistToBytestring(valuelist, numberOfRegisters):
     MINVALUE = 0
     MAXVALUE = 65535
@@ -923,13 +896,13 @@ def _checkInt(inputvalue, minvalue=None, maxvalue=None, description='inputvalue'
     if not isinstance(description, str):
         raise TypeError('The description should be a string. Given: {0!r}'.format(description))
 
-    if not isinstance(inputvalue, (int, long)):
+    if not isinstance(inputvalue, (int, int)):
         raise TypeError('The {0} must be an integer. Given: {1!r}'.format(description, inputvalue))
 
-    if not isinstance(minvalue, (int, long, type(None))):
+    if not isinstance(minvalue, (int, int, type(None))):
         raise TypeError('The minvalue must be an integer or None. Given: {0!r}'.format(minvalue))
 
-    if not isinstance(maxvalue, (int, long, type(None))):
+    if not isinstance(maxvalue, (int, int, type(None))):
         raise TypeError('The maxvalue must be an integer or None. Given: {0!r}'.format(maxvalue))
 
     _checkNumerical(inputvalue, minvalue, maxvalue, description)
@@ -940,13 +913,13 @@ def _checkNumerical(inputvalue, minvalue=None, maxvalue=None, description='input
     if not isinstance(description, str):
         raise TypeError('The description should be a string. Given: {0!r}'.format(description))
 
-    if not isinstance(inputvalue, (int, long, float)):
+    if not isinstance(inputvalue, (int, int, float)):
         raise TypeError('The {0} must be numerical. Given: {1!r}'.format(description, inputvalue))
 
-    if not isinstance(minvalue, (int, float, long, type(None))):
+    if not isinstance(minvalue, (int, float, int, type(None))):
         raise TypeError('The minvalue must be numeric or None. Given: {0!r}'.format(minvalue))
 
-    if not isinstance(maxvalue, (int, float, long, type(None))):
+    if not isinstance(maxvalue, (int, float, int, type(None))):
         raise TypeError('The maxvalue must be numeric or None. Given: {0!r}'.format(maxvalue))
 
     # Consistency checking
