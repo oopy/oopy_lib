@@ -15,11 +15,11 @@ author: [Huifeng](https://github.com/sgrrzhf)
 
 ## 函数
 `` get_lux() ``
-功能: 获取光照强度数据
-参数: 
+### 功能: 获取光照强度数据
+### 参数: 
 `accuracy` 设置读取的精度
 `accuracy = True`时，读取的数据为高精度，反之为低精度，默认为`False`
-返回: 浮点数，光照强度
+### 返回: 浮点数，光照强度
 
 
 ## 范例
